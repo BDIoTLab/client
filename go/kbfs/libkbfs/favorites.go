@@ -834,6 +834,12 @@ const (
 	FavoritesRefreshModeBlocking
 )
 
+func (f *Favorites) clearLastRefreshID() {
+	f.idLock.Lock()
+	defer f.idLock.Unlock()
+	f.lastRefreshID = tlf.NullID
+}
+
 // RefreshCache refreshes the cached list of favorites.
 //
 // In FavoritesRefreshModeBlocking, request the favorites in this function,
@@ -870,6 +876,8 @@ func (f *Favorites) RefreshCache(ctx context.Context, mode FavoritesRefreshMode)
 		ctx:     context.Background(),
 	}
 	f.wg.Add(1)
+
+	f.clearLastRefreshID()
 
 	if mode == FavoritesRefreshModeBlocking {
 		favResult, err := f.config.KBPKI().FavoriteList(ctx)
