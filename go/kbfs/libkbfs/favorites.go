@@ -121,6 +121,9 @@ type Favorites struct {
 	inFlightLock sync.Mutex
 	inFlightAdds map[favorites.Folder]*favReq
 
+	idLock        sync.Mutex
+	lastRefreshID tlf.ID
+
 	shutdownChan chan struct{}
 	muShutdown   sync.RWMutex
 	shutdown     bool
@@ -898,13 +901,32 @@ func (f *Favorites) RefreshCache(ctx context.Context, mode FavoritesRefreshMode)
 	}
 }
 
+func (f *Favorites) doIDRefresh(id tlf.ID) bool {
+	f.idLock.Lock()
+	defer f.idLock.Unlock()
+
+	if f.lastRefreshID == id {
+		return false
+	}
+	f.lastRefreshID = id
+	return true
+}
+
 // RefreshCacheWhenMTimeChanged refreshes the cached favorites, but
 // does so with rate-limiting, so that it doesn't hit the server too
-// often.
-func (f *Favorites) RefreshCacheWhenMTimeChanged(ctx context.Context) {
+// often.  `id` is the ID of the TLF that caused this refresh to
+// happen.  As an optimization, if `id` matches the previous `id` that
+// triggered a refresh, then we just ignore the refresh since it won't
+// materially change the order of the favorites by mtime.
+func (f *Favorites) RefreshCacheWhenMTimeChanged(
+	ctx context.Context, id tlf.ID) {
 	f.muShutdown.RLock()
 	defer f.muShutdown.RUnlock()
 	if f.disabled || f.shutdown {
+		return
+	}
+
+	if !f.doIDRefresh(id) {
 		return
 	}
 
