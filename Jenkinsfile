@@ -706,8 +706,10 @@ def testGoTestSuite(prefix, packagesToTest) {
   }
   executeInWorkers(3, true /* runFirstItemAlone */, packageTestCompileList)
 
-  dir('..') {
-    sh "docker-compose up -d kbweb.local"
+  if (prefix == "test_linux_go_") {
+    dir('..') {
+      sh "docker-compose up -d kbweb.local"
+    }
   }
   helpers.waitForURLWithTimeout(prefix, env.KEYBASE_SERVER_URI, 900)
   println "Running ${packageTestSet.size()} test(s)"
